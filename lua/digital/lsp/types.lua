@@ -56,36 +56,4 @@ M.range = {
   end_pos = M.position,
 }
 
----@class hdl_module_port
----@field name string
----@field type HDL_MODULE_PORT_TYPE
----@field width string
----@field range range
----@field desc string
----@field signed string
----@field netType string
-M.hdl_module_port = {
-  name = '',
-  type = M.HDL_MODULE_PORT_TYPE.Unknown,
-  width = '',
-  range = M.range,
-  desc = '',
-  signed = '',
-  netType = '',
-}
-
----@class hdl_module_param
----@field name string
----@field type string
----@field init string
----@field range range
----@field desc string
-M.hdl_module_param = {
-  name = '',
-  type = '',
-  init = '',
-  range = M.range,
-  desc = '',
-}
-
 return M
