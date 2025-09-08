@@ -1,22 +1,27 @@
-name: Ci
+name: Docs
 
-on: [push]
+on:
+  push:
+    branches: [ main ]
 
 jobs:
   docs:
     runs-on: ubuntu-latest
-    name: pandoc to vimdoc
-    if: ${{ github.ref == 'refs/heads/main' }}
     steps:
       - uses: actions/checkout@v3
+      - name: Setup git
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
       - name: panvimdoc
         uses: kdheepak/panvimdoc@main
         with:
           vimdoc: verisuite.nvim
           treesitter: true
-      - uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-          commit_message: "chore(doc): auto generate docs"
-          commit_user_name: "github-actions[bot]"
-          commit_user_email: "github-actions[bot]@users.noreply.github.com"
-          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+      - name: Commit and push
+        run: |
+          git add doc/
+          git commit -m "chore(doc): auto generate docs" || exit 0
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
