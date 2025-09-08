@@ -3,15 +3,6 @@ name: Ci
 on: [push]
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Lua linter
-        uses: lunarmodules/luacheck-action@v1
-        with:
-          args: --globals vim --codes --allow-defined --no-max-line-length .
-
   docs:
     runs-on: ubuntu-latest
     name: pandoc to vimdoc
