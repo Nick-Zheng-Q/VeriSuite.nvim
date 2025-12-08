@@ -1,4 +1,6 @@
 local verible = require('VeriSuite.core.verible')
+local parser = require('VeriSuite.core.parser')
+
 local M = {}
 
 -- 测试单个文件解析
@@ -11,7 +13,7 @@ function M.test_parse_file()
     return
   end
 
-  local modules = verible.parse_file(current_file)
+  local modules = parser.parse_file(current_file)
 
   -- 显示结果
   M.show_results(modules, 'Verible Parse Results: ' .. vim.fn.fnamemodify(current_file, ':t'))
@@ -42,6 +44,31 @@ function M.show_results(data, title)
         )
       end
     end
+    if item.ports and #item.ports > 0 then
+      table.insert(lines, '    Ports:')
+      for j, port in ipairs(item.ports) do
+        table.insert(
+          lines,
+          string.format('      [%d] %s (%s) width=%s', j, port.name, port.direction, port.width or 'N/A')
+        )
+      end
+    else
+      table.insert(lines, '    Ports: (none found)')
+    end
+
+    -- 显示实例化
+    if item.instances and #item.instances > 0 then
+      table.insert(lines, '    Instances:')
+      for j, instance in ipairs(item.instances) do
+        table.insert(
+          lines,
+          string.format('      [%d] %s -> %s', j, instance.instance_name or 'unnamed', instance.module_name or 'unknown')
+        )
+      end
+    else
+      table.insert(lines, '    Instances: (none found)')
+    end
+
     table.insert(lines, '')
   end
 
@@ -100,24 +127,21 @@ function M.test_parse_file_raw()
     return
   end
 
-  local cmd = string.format(
-    '%s --export_json --printtree %s',
-    verible.tools.syntax_checker,
-    vim.fn.shellescape(current_file)
-  )
+  local result = verible.run_syntax(current_file, { timeout_ms = verible.config.timeout_ms })
 
-  local success, result = pcall(function()
-    return vim.fn.system(cmd)
-  end)
-
-  if not success or vim.v.shell_error ~= 0 then
-    vim.notify('Verible parsing failed', vim.log.levels.ERROR)
+  if not result.ok then
+    local stderr = table.concat(result.stderr or {}, '\n')
+    vim.notify('Verible parsing failed: ' .. stderr, vim.log.levels.ERROR)
     return
   end
 
   -- 在新窗口显示原始JSON
   local bufnr = vim.api.nvim_create_buf(false, true)
-  local lines = vim.split(result, '\n')
+  local output = result.stdout
+  if type(output) == 'table' then
+    output = table.concat(output, '\n')
+  end
+  local lines = vim.split(output or '', '\n')
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
 
   vim.api.nvim_set_option_value('buftype', 'nofile', { buf = bufnr })
@@ -158,32 +182,46 @@ function M.test_tree_structure()
     return
   end
 
-  -- 深度检查树结构
+  -- 深度检查树结构，重点关注模块和端口相关的tag
   local function inspect_node(node, path, depth)
-    if depth > 5 then
+    if depth > 6 then
       return
     end -- 限制递归深度
 
-    print(string.rep('  ', depth) .. 'Path: ' .. path)
-    print(string.rep('  ', depth) .. 'Type: ' .. type(node))
+    if type(node) == 'table' and node.tag then
+      local tag = node.tag
+      local indent = string.rep('  ', depth)
 
-    if type(node) == 'table' then
-      for k, v in pairs(node) do
-        print(string.rep('  ', depth) .. '  ' .. tostring(k) .. ': ' .. type(v))
-        if k == 'children' and type(v) == 'table' then
-          print(string.rep('  ', depth) .. '  Children count: ' .. #v)
-          for i, child in ipairs(v) do
-            print(string.rep('  ', depth) .. '    [' .. i .. ']: ' .. type(child))
-            if type(child) == 'table' then
-              inspect_node(child, path .. '.children[' .. i .. ']', depth + 1)
-            end
-          end
-        elseif type(v) == 'table' and k ~= 'children' then
-          inspect_node(v, path .. '.' .. tostring(k), depth + 1)
+      -- 只显示重要的节点
+      if string.find(tag, 'Module') or
+         string.find(tag, 'Port') or
+         string.find(tag, 'input') or
+         string.find(tag, 'output') or
+         string.find(tag, 'inout') or
+         string.find(tag, 'SymbolIdentifier') or
+         string.find(tag, 'Header') then
+        print(indent .. path .. ' -> tag: ' .. tag)
+
+        -- 如果有text信息，显示出来
+        if node.text and node.text ~= '' then
+          print(indent .. '  text: "' .. node.text .. '"')
+        end
+
+        -- 显示子节点数量
+        if node.children and type(node.children) == 'table' then
+          print(indent .. '  children count: ' .. #node.children)
         end
       end
-    else
-      print(string.rep('  ', depth) .. 'Value: ' .. tostring(node))
+    end
+
+    if type(node) == 'table' then
+      if node.children and type(node.children) == 'table' then
+        for i, child in ipairs(node.children) do
+          if type(child) == 'table' then
+            inspect_node(child, path .. '.children[' .. i .. ']', depth + 1)
+          end
+        end
+      end
     end
   end
 
@@ -193,6 +231,47 @@ function M.test_tree_structure()
       inspect_node(file_data.tree, 'tree', 0)
     end
   end
+end
+
+-- 测试项目解析（之前缺失的函数）
+function M.test_parse_project()
+  local parser = require('VeriSuite.core.parser')
+
+  -- 获取项目根目录
+  local root_dir = parser.find_project_root()
+  vim.notify('Project root: ' .. root_dir, vim.log.levels.INFO)
+
+  parser.parse_project_async(root_dir, {
+    concurrency = 4,
+    on_progress = function(done, total)
+      if done % 20 == 0 or done == total then
+        vim.notify(string.format('Parsed %d/%d files', done, total), vim.log.levels.DEBUG)
+      end
+    end,
+    on_finish = function(modules, failed, errors)
+      local msg = string.format('Project parse completed. Modules: %d, failed files: %d', #modules, failed)
+      vim.schedule(function()
+        vim.notify(msg, vim.log.levels.INFO)
+        if errors and #errors > 0 then
+          local first = errors[1]
+          local detail = first.err or ''
+          local preview = first.stdout_preview or ''
+          local stderr = first.stderr or ''
+          vim.notify(
+            string.format('First failure: %s (code %s) reason: %s', first.file or 'unknown', tostring(first.code), detail),
+            vim.log.levels.WARN
+          )
+          if preview ~= '' then
+            vim.notify('stdout preview: ' .. preview, vim.log.levels.WARN)
+          end
+          if stderr ~= '' then
+            vim.notify('stderr: ' .. stderr, vim.log.levels.WARN)
+          end
+        end
+        M.show_results(modules, 'Project Parse Results: ' .. vim.fn.fnamemodify(root_dir, ':t'))
+      end)
+    end,
+  })
 end
 
 return M
