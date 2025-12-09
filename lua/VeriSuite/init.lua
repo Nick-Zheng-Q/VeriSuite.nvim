@@ -1,12 +1,15 @@
 local core = require('VeriSuite.core')
 local verible = require('VeriSuite.core.verible')
 local test = require('VeriSuite.test')
+local blink = require('VeriSuite.integrations.blink')
 local M = {}
 
 local defaults = {
   enable_debug_commands = true,
   enable_autocmds = true,
   verible = {},
+  enable_blink_source = false,
+  blink = {},
 }
 
 ---Setup entry point
@@ -20,6 +23,11 @@ function M.setup(opts)
 
   if config.enable_autocmds then
     core.register_autocmds()
+  end
+
+  if config.enable_blink_source then
+    blink.configure(config.blink)
+    blink.register_command()
   end
 
   if config.enable_debug_commands then

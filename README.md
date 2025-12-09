@@ -174,8 +174,47 @@ require('VeriSuite').setup({
     -- extra_paths = { "/opt/verible/bin" },
     -- prefer_mason_bin = true,
   },
+  -- optional blink.cmp source for module/port completion
+  enable_blink_source = false,
+  blink = {
+    -- min_keyword_length = 1,
+    -- priority = 40,
+  },
 })
 ```
+
+### blink.cmp Integration (optional)
+
+在 `blink.cmp` 的 `sources.providers` 中加入 VeriSuite，并在默认/Verilog filetype 源列表里启用：
+
+```lua
+require('VeriSuite').setup({
+  enable_blink_source = true,
+  blink = { min_keyword_length = 1, priority = 40 },
+})
+
+require('blink.cmp').setup({
+  sources = {
+    default = { 'verisuite', 'lsp', 'path' },
+    per_filetype = {
+      verilog = { inherit_defaults = true },
+      systemverilog = { inherit_defaults = true },
+      sv = { inherit_defaults = true },
+    },
+    providers = {
+      verisuite = {
+        module = 'VeriSuite.integrations.blink',
+        name = 'VeriSuite',
+        opts = { min_keyword_length = 1, priority = 40 },
+      },
+    },
+  },
+})
+```
+
+- 模块名补全：在 Verilog/SV buffer 提供缓存中的模块名，附文件名/端口数量说明。
+- 模块名补全：选择后直接插入 AutoInst 风格的实例化代码块。
+- 端口补全：在实例化括号内时，提供 `.port(port)` 形式的补全，备注方向/位宽。
 
 ## Supported Verilog Features
 
