@@ -75,8 +75,34 @@ function M.register_debug_commands()
   end, {})
 
   -- Treeview 相关命令
-  vim.api.nvim_create_user_command('VeriSuiteTreeView', function()
-    treeview.show_dependency_tree()
+  vim.api.nvim_create_user_command('VeriSuiteTreeViewToggle', function()
+    if treeview.window_state.is_open then
+      treeview.close_dependency_tree()
+    else
+      treeview.show_dependency_tree({ filter_type = 'all' })
+    end
+  end, {})
+
+  vim.api.nvim_create_user_command('VeriSuiteTreeViewHardware', function()
+    treeview.window_state.filter_type = 'hw'
+    if not treeview.window_state.is_open then
+      treeview.show_dependency_tree({ filter_type = 'hw' })
+    else
+      treeview.refresh_tree()
+    end
+  end, {})
+
+  vim.api.nvim_create_user_command('VeriSuiteTreeViewTest', function()
+    treeview.window_state.filter_type = 'test'
+    if not treeview.window_state.is_open then
+      treeview.show_dependency_tree({ filter_type = 'test' })
+    else
+      treeview.refresh_tree()
+    end
+  end, {})
+
+  vim.api.nvim_create_user_command('VeriSuiteTreeViewClose', function()
+    treeview.close_dependency_tree()
   end, {})
 
   vim.api.nvim_create_user_command('VeriSuiteTreeViewRefresh', function()

@@ -1,341 +1,108 @@
-<div align="center">
+# VeriSuite.nvim
 
-<h1>VeriSuite.nvim</h1>
+English | [中文](README_zh.md)
 
-A comprehensive Neovim plugin for Verilog/SystemVerilog development
-
-[Features](#features) • [Installation](#installation) • [Usage](#usage) • [Commands](#commands) • [Configuration](#configuration)
-
-</div>
-
-VeriSuite.nvim is a powerful Neovim plugin designed to enhance Verilog and SystemVerilog development workflow. It leverages the [Verible](https://github.com/chipsalliance/verible) tool suite to provide intelligent code parsing, module instantiation, and project management capabilities.
-
-> [!NOTE]
-> This plugin is actively under development. Core functionality is working, but many features are planned for future releases.
+VeriSuite.nvim is a Neovim plugin that speeds up Verilog/SystemVerilog development with Verible-based parsing, auto-instantiation, caching, and quick navigation/UI helpers.
 
 ## Features
 
-### ✅ Currently Implemented
-
-- **Module Parsing**: Automatically parse Verilog/SystemVerilog files to extract module information
-- **Auto-Instantiation**: Generate module instantiations with all ports and parameters
-- **Module Cache**: Efficient caching system for large projects
-- **Multiple Port Declaration Styles**: Support for both ANSI C and simplified ANSI C port declarations
-- **Project-wide Search**: Find and parse all Verilog files in your project
-- **Debug Tools**: Comprehensive debugging commands for development and troubleshooting
-
-### 🚧 Planned Features
-
-- Enhanced UI with floating windows
-- Fuzzy finding for module selection
-- SystemVerilog interface support
-- Code completion integration
-- Navigation and go-to-definition
-- Refactoring tools
-- And much more! (See [TODO list](#todo))
+- Module parsing via Verible with async project parsing (non-blocking)
+- Auto-instantiation with ANSI-style port hookups
+- Module cache with dependency data (hardware vs test modules)
+- Tree view side panel for dependencies / reverse dependencies (filters for hardware/test roots)
+- fzf-lua picker for inserting instantiations or jumping to module definitions
+- Optional blink.cmp source for module/port completion (modules insert full instantiation; ports insert `.port(sig)`)
 
 ## Requirements
 
-- **Neovim** >= 0.7.0
-- **Verible** tool suite installed and accessible in PATH
-  - `verible-verilog-syntax`
-  - `verible-verilog-lint`
-  - `verible-verilog-format`
-  - `verible-verilog-ls`
-- **Mason** (recommended for easy Verible installation)
+- Neovim >= 0.7
+- Verible tools in PATH (or provided via config)
+- `plenary.nvim`
+- Optional: `fzf-lua` for pickers; `blink.cmp` for completion
 
-### Installing Verible
-
-#### Using Mason (Recommended)
-```lua
-require('mason').setup()
-require('mason-tool-installer').setup {
-  ensure_installed = {
-    'verible',
-  },
-}
-```
-
-#### Manual Installation
-```bash
-# macOS
-brew install verible
-
-# Linux (Ubuntu/Debian)
-wget https://github.com/chipsalliance/verible/releases/download/v0.0-3519-g5bf25af/verible-v0.0-3519-g5bf25af-linux-static-x86_64.tar.gz
-tar -xzf verible-*-linux-static-x86_64.tar.gz
-sudo cp verible-*/bin/* /usr/local/bin/
-```
-
-## Installation
-
-### Using [lazy.nvim](https://github.com/folke/lazy.nvim)
+## Installation (lazy.nvim)
 
 ```lua
+return
 {
-  'your-username/VeriSuite.nvim',
-  dependencies = {
-    'nvim-lua/plenary.nvim',
-  },
+  'Nick-Zheng-Q/VeriSuite.nvim',
+  name = 'VeriSuite.nvim',
+  dependencies = { 'nvim-lua/plenary.nvim' },
   config = function()
-    require('VeriSuite').setup()
+    require('VeriSuite').setup({
+      enable_debug_commands = true,
+      enable_autocmds = true,
+      verible = {
+        -- tool_overrides = { syntax_checker = "/path/to/verible-verilog-syntax" },
+        -- timeout_ms = 5000,
+        -- extra_paths = { "/opt/verible/bin" },
+        -- prefer_mason_bin = true,
+      },
+      enable_blink_source = true,
+      blink = {
+        -- min_keyword_length = 1,
+        -- priority = 40,
+      },
+      enable_fzf = true,
+      keymaps = {
+        -- set to '' to disable any mapping
+        -- treeview_toggle = '<leader>vt',
+        -- treeview_hw = '<leader>vh',
+        -- treeview_test = '<leader>vv',
+        -- treeview_close = '<leader>vq',
+        -- parse_project = '<leader>vp',
+        -- fzf_autoinst = '<leader>va',
+        -- fzf_goto = '<leader>vg',
+      },
+    })
   end,
 }
-```
-
-### Using [packer.nvim](https://github.com/wbthomason/packer.nvim)
-
-```lua
-use {
-  'your-username/VeriSuite.nvim',
-  requires = {
-    'nvim-lua/plenary.nvim',
-  },
-  config = function()
-    require('VeriSuite').setup()
-  end,
-}
-```
-
-## Usage
-
-### Basic Workflow
-
-1. **Open a Verilog file** in your project
-2. **Parse your project** to build the module cache:
-   ```vim
-   :VeriSuiteDebugParseProject
-   ```
-3. **Generate auto-instantiation** for any module:
-   ```vim
-   :VeriSuiteAutoInst
-   ```
-   Enter the module name when prompted
-4. **Insert the generated instantiation** at your cursor position
-
-### Debug Commands
-
-For development and troubleshooting, VeriSuite provides several debug commands:
-
-```vim
-" Parse current file and show results
-:VeriSuiteDebugParseFile
-
-" Parse entire project
-:VeriSuiteDebugParseProject
-
-" Show raw JSON output from Verible
-:VeriSuiteDebugParseFileRaw
-
-" Show configuration and tool availability
-:VeriSuiteDebugShowConfig
-
-" Inspect AST tree structure (for debugging port extraction)
-:VeriSuiteDebugTreeStructure
-
-" Test auto-instantiation with preview
-:VeriSuiteTestAutoInst
-
-" Test module cache system
-:VeriSuiteTestModuleCache
-
-" Generate code without inserting
-:VeriSuiteTestGenerateOnly
 ```
 
 ## Commands
 
 | Command | Description |
-|---------|-------------|
-| `:VeriSuiteAutoInst` | Generate module instantiation (interactive) |
-| `:VeriSuiteDebugParseFile` | Parse current file and show module info |
-| `:VeriSuiteDebugParseProject` | Parse entire project |
-| `:VeriSuiteDebugParseFileRaw` | Show raw Verible JSON output |
-| `:VeriSuiteDebugShowConfig` | Display configuration and tool status |
-| `:VeriSuiteDebugTreeStructure` | Debug AST tree structure |
-| `:VeriSuiteTestAutoInst` | Test auto-instantiation with preview |
-| `:VeriSuiteTestModuleCache` | Test and display module cache |
-| `:VeriSuiteTestGenerateOnly` | Generate code without inserting |
+| --- | --- |
+| `:VeriSuiteAutoInst` | Auto-instantiate by module name (interactive input) |
+| `:VeriSuiteDebugParseFile` | Parse current file |
+| `:VeriSuiteDebugParseProject` | Parse entire project (async) |
+| `:VeriSuiteDebugParseFileRaw` | Show raw Verible JSON |
+| `:VeriSuiteDebugShowConfig` | Show Verible/tool status |
+| `:VeriSuiteDebugTreeStructure` | Inspect AST tree (debug) |
+| `:VeriSuiteTestAutoInst` | Test auto-instantiation (preview) |
+| `:VeriSuiteTestModuleCache` | Rebuild cache and show stats |
+| `:VeriSuiteTestGenerateOnly` | Generate instantiation without insert |
+| `:VeriSuiteDebugCacheStatus` | Cache summary (modules/deps/files) |
+| `:VeriSuiteTreeViewToggle` | Toggle dependency side panel |
+| `:VeriSuiteTreeViewHardware` | Panel rooted at hardware modules (has ports) |
+| `:VeriSuiteTreeViewTest` | Panel rooted at test modules (no ports) |
+| `:VeriSuiteTreeViewRefresh` | Reload cache and refresh panel |
+| `:VeriSuiteTreeViewClose` | Close panel |
+| `:VeriSuiteFzfAutoInst` | fzf-lua pick module and insert instantiation |
+| `:VeriSuiteFzfGotoModule` | fzf-lua pick module and jump to definition |
 
-## Configuration
+## Tree View
 
-Currently, VeriSuite uses minimal configuration. Future versions will include customizable options:
+- Left split side panel; toggle with `:VeriSuiteTreeViewToggle`.
+- View modes: dependencies / reverse dependencies (toggle inside with `t`); filter by hardware/test roots via commands above.
+- Keybinds inside panel: `o` expand/collapse, `<CR>` jump (keeps panel open), `gf` open file, `f` filter by module name.
 
-```lua
-require('VeriSuite').setup({
-  -- set to false to avoid loading helper test commands
-  enable_debug_commands = true,
-  -- refresh module cache on save for *.v/*.sv/*.vh/*.svh
-  enable_autocmds = true,
-  -- optional Verible overrides
-  verible = {
-    -- tool_overrides = { syntax_checker = "/path/to/verible-verilog-syntax" },
-    -- timeout_ms = 5000,
-    -- extra_paths = { "/opt/verible/bin" },
-    -- prefer_mason_bin = true,
-  },
-  -- optional blink.cmp source for module/port completion
-  enable_blink_source = false,
-  blink = {
-    -- min_keyword_length = 1,
-    -- priority = 40,
-  },
-})
-```
+## blink.cmp Integration
 
-### blink.cmp Integration (optional)
+- Enable with `enable_blink_source = true`. No extra commands needed; source registers automatically.
+- Modules completion inserts full AutoInst snippet (only modules with ports). Ports completion inserts `.port(port)` with direction/width detail.
+- Honors module cache; will auto-load cache if not ready.
 
-在 `blink.cmp` 的 `sources.providers` 中加入 VeriSuite，并在默认/Verilog filetype 源列表里启用：
+## fzf-lua Integration
 
-```lua
-require('VeriSuite').setup({
-  enable_blink_source = true,
-  blink = { min_keyword_length = 1, priority = 40 },
-})
+- `:VeriSuiteFzfAutoInst`: pick a module (only with ports) and insert AutoInst at cursor.
+- `:VeriSuiteFzfGotoModule`: pick a module and jump to its definition line (or search by name).
 
-require('blink.cmp').setup({
-  sources = {
-    default = { 'verisuite', 'lsp', 'path' },
-    per_filetype = {
-      verilog = { inherit_defaults = true },
-      systemverilog = { inherit_defaults = true },
-      sv = { inherit_defaults = true },
-    },
-    providers = {
-      verisuite = {
-        module = 'VeriSuite.integrations.blink',
-        name = 'VeriSuite',
-        opts = { min_keyword_length = 1, priority = 40 },
-      },
-    },
-  },
-})
-```
+## Development & Debug
 
-- 模块名补全：在 Verilog/SV buffer 提供缓存中的模块名，附文件名/端口数量说明。
-- 模块名补全：选择后直接插入 AutoInst 风格的实例化代码块。
-- 端口补全：在实例化括号内时，提供 `.port(port)` 形式的补全，备注方向/位宽。
-
-## Supported Verilog Features
-
-### Port Declaration Styles
-
-The plugin supports both major Verilog port declaration styles:
-
-#### Style 1: ANSI C Style
-```verilog
-module my_module (
-  input  logic clk_i,
-  input  logic rst_ni,
-  output logic [7:0] data_o
-);
-```
-
-#### Style 2: Simplified ANSI C Style
-```verilog
-module my_module (clk_i, rst_ni, data_o);
-  input  logic clk_i;
-  input  logic rst_ni;
-  output logic [7:0] data_o;
-```
-
-### Auto-Instantiation Example
-
-Given a module like:
-```verilog
-module example_module (
-  input  logic        clk_i,
-  input  logic        rst_ni,
-  input  logic [15:0] data_i,
-  output logic [7:0]  result_o,
-  output logic        valid_o
-);
-  // Module implementation
-endmodule
-```
-
-The auto-instantiation will generate:
-```verilog
-example_module u_example_module (
-  .clk_i    (clk_i),
-  .rst_ni   (rst_ni),
-  .data_i   (data_i),
-  .result_o (result_o),
-  .valid_o  (valid_o)
-);
-```
-
-## File Structure
-
-```
-VeriSuite.nvim/
-├── lua/
-│   └── VeriSuite/
-│       ├── core/
-│       │   ├── init.lua          # Core initialization and commands
-│       │   ├── verible.lua       # Verible tool integration
-│       │   ├── parser.lua        # Module parsing logic
-│       │   ├── autoinst.lua      # Auto-instantiation generation
-│       │   └── module_cache.lua  # Module caching system
-│       ├── test/
-│       │   ├── init.lua          # Debug command registration
-│       │   ├── verible_test.lua  # Verible parsing tests
-│       │   └── autoinst_test.lua # Auto-instantiation tests
-│       └── init.lua              # Main plugin entry point
-├── README.md
-└── ... (other config files)
-```
-
-## Development
-
-### Running Tests
-
-The plugin includes comprehensive debug commands for testing:
-
-1. Open a Verilog file
-2. Use the debug commands to test functionality:
-   ```vim
-   :VeriSuiteTestModuleCache    " Test caching system
-   :VeriSuiteTestAutoInst       " Test auto-instantiation
-   :VeriSuiteDebugParseFile     " Test file parsing
-   ```
-3. Use `<leader>pt` to quickly reload the plugin during development
-
-### Contributing
-
-Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests.
-
-## TODO
-
-See the [comprehensive TODO list](https://github.com/your-username/VeriSuite.nvim/issues) for planned features and improvements:
-
-### High Priority
-- [ ] Error handling improvements
-- [ ] Module cache robustness
-- [ ] Parameterized module support
-
-### Medium Priority
-- [ ] UI/UX improvements (floating windows, fuzzy finding)
-- [ ] Code generation enhancements
-- [ ] Navigation and discovery features
-
-### Future Features
-- [ ] Performance optimizations
-- [ ] Advanced SystemVerilog support
-- [ ] LSP integration
-- [ ] Advanced code analysis tools
-
-## Related Projects
-
-- [verilog-autoinst.nvim](https://github.com/mingo99/verilog-autoinst.nvim) - Similar plugin for auto-instantiation
-- [Digital-IDE](https://github.com/Digital-EDA/Digital-IDE) - Comprehensive Verilog IDE
+- Use debug commands above; set `enable_debug_commands = false` to hide them for daily use.
+- Autocmd: on `BufWritePost` for `*.v,*.sv,*.vh,*.svh` the current file is re-parsed into cache (if enabled).
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Built on top of the excellent [Verible](https://github.com/chipsalliance/verible) tool suite
-- Inspired by various Verilog development tools and IDEs
-- Thanks to the Neovim community for the amazing plugin ecosystem
+MIT

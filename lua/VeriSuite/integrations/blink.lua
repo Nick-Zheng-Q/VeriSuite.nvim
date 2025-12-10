@@ -222,20 +222,4 @@ function M:get_completions(context, callback)
   return function() end
 end
 
-function M.show_completion()
-  local ok, blink_cmp = pcall(require, 'blink.cmp')
-  if not ok then
-    vim.notify('blink.cmp not available', vim.log.levels.WARN)
-    return
-  end
-  ensure_cache()
-  blink_cmp.show({ providers = { 'verisuite' } })
-end
-
-function M.register_command()
-  vim.api.nvim_create_user_command('VeriSuiteBlinkComplete', function()
-    M.show_completion()
-  end, { desc = 'Show VeriSuite blink completion' })
-end
-
 return M

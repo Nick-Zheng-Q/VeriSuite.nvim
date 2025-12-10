@@ -13,10 +13,11 @@ treeview.window_state = {
   expanded_nodes = {},
   view_mode = 'deps', -- 'deps' or 'rdeps'
   filter = nil,
+  filter_type = 'all', -- 'all' | 'hw' | 'test'
 }
 
 -- 依赖树节点结构
-local function create_tree_node(name, type, file_path, level)
+local function create_tree_node(name, type, file_path, level, is_test)
   return {
     name = name,
     type = type, -- 'module', 'file', 'dependency'
@@ -28,6 +29,7 @@ local function create_tree_node(name, type, file_path, level)
     has_children = false,
     dependency_count = 0,
     dependent_count = 0,
+    is_test = is_test,
   }
 end
 
@@ -36,13 +38,19 @@ function treeview.build_dependency_tree(opts)
   opts = opts or {}
   local mode = opts.view_mode or treeview.window_state.view_mode or 'deps'
   local filter = opts.filter or treeview.window_state.filter
+  local filter_type = opts.filter_type or treeview.window_state.filter_type or 'all'
 
   if not module_cache.cache.is_loaded then
     return create_tree_node('Loading...', 'root', nil, 0)
   end
 
   local tree_root = create_tree_node(
-    string.format('Project Root (%s%s)', mode == 'deps' and 'dependencies' or 'reverse', filter and (', filter=' .. filter) or ''),
+    string.format(
+      'Project Root (%s%s%s)',
+      mode == 'deps' and 'dependencies' or 'reverse',
+      filter and (', filter=' .. filter) or '',
+      filter_type ~= 'all' and (', ' .. filter_type) or ''
+    ),
     'root',
     module_cache.cache.project_root,
     0
@@ -52,7 +60,11 @@ function treeview.build_dependency_tree(opts)
 
   local all_modules = {}
   for module_name, module_data in pairs(dependency_tree) do
-    all_modules[module_name] = create_tree_node(module_name, 'module', module_data.file, 1)
+    local is_test = true
+    if module_cache.cache.modules[module_name] and module_cache.cache.modules[module_name].ports then
+      is_test = #module_cache.cache.modules[module_name].ports == 0
+    end
+    all_modules[module_name] = create_tree_node(module_name, 'module', module_data.file, 1, is_test)
     all_modules[module_name].dependency_count = #module_data.dependencies
     all_modules[module_name].dependent_count = #module_data.dependents
   end
@@ -94,6 +106,42 @@ function treeview.build_dependency_tree(opts)
     end
   end
 
+  if filter_type == 'hw' then
+    local filtered = {}
+    for _, m in ipairs(root_modules) do
+      if all_modules[m] and not all_modules[m].is_test then
+        table.insert(filtered, m)
+      end
+    end
+    if #filtered > 0 then
+      root_modules = filtered
+    else
+      root_modules = {}
+      for name, node in pairs(all_modules) do
+        if not node.is_test then
+          table.insert(root_modules, name)
+        end
+      end
+    end
+  elseif filter_type == 'test' then
+    local filtered = {}
+    for _, m in ipairs(root_modules) do
+      if all_modules[m] and all_modules[m].is_test then
+        table.insert(filtered, m)
+      end
+    end
+    if #filtered > 0 then
+      root_modules = filtered
+    else
+      root_modules = {}
+      for name, node in pairs(all_modules) do
+        if node.is_test then
+          table.insert(root_modules, name)
+        end
+      end
+    end
+  end
+
   for _, root_module_name in ipairs(root_modules) do
     local root_node = all_modules[root_module_name]
     if root_node then
@@ -109,10 +157,15 @@ function treeview.build_dependency_tree(opts)
 
   for module_name, module_node in pairs(all_modules) do
     if not visited_modules[module_name] then
-      module_node.level = 1
-      treeview.build_module_dependency_tree(module_node, all_modules, dependency_tree, nil, mode, children_of)
-      table.insert(tree_root.children, module_node)
-      module_node.parent = tree_root
+      if filter_type == 'all'
+        or (filter_type == 'hw' and not module_node.is_test)
+        or (filter_type == 'test' and module_node.is_test)
+      then
+        module_node.level = 1
+        treeview.build_module_dependency_tree(module_node, all_modules, dependency_tree, nil, mode, children_of)
+        table.insert(tree_root.children, module_node)
+        module_node.parent = tree_root
+      end
     end
   end
 
@@ -147,7 +200,7 @@ function treeview.build_module_dependency_tree(module_node, all_modules, depende
   for _, dep_name in ipairs(child_names) do
     local dep_node = all_modules[dep_name]
     if dep_node and dep_node.name ~= module_node.name then
-      local new_dep_node = create_tree_node(dep_node.name, "dependency", dep_node.file_path, module_node.level + 1)
+      local new_dep_node = create_tree_node(dep_node.name, "dependency", dep_node.file_path, module_node.level + 1, dep_node.is_test)
       new_dep_node.dependency_count = dep_node.dependency_count
       new_dep_node.dependent_count = dep_node.dependent_count
       new_dep_node.parent = module_node
@@ -328,12 +381,13 @@ end
 
 -- 获取节点图标
 function treeview.get_node_icon(node)
-  local icons = {
-    root = "📁",
-    module = "📦",
-    dependency = "🔗",
-  }
-  return icons[node.type] or "•"
+  if node.type == 'root' then
+    return ""
+  end
+  if node.is_test then
+    return "🧪"
+  end
+  return "󰡱"
 end
 
 -- 获取节点统计信息
@@ -350,9 +404,7 @@ end
 
 -- 创建侧边栏窗口
 function treeview.create_sidebar()
-  local width = 60
-  local height = vim.o.lines - 4
-  local col = vim.o.columns - width - 2
+  local width = math.max(30, math.floor(vim.o.columns * 0.3))
 
   -- 创建buffer
   local buf = vim.api.nvim_create_buf(false, true)
@@ -364,18 +416,16 @@ function treeview.create_sidebar()
   vim.api.nvim_buf_set_option(buf, 'swapfile', false)
   vim.api.nvim_buf_set_option(buf, 'filetype', 'verisuite-treeview')
 
-  -- 创建窗口
-  local win = vim.api.nvim_open_win(buf, true, {
-    relative = 'editor',
-    width = width,
-    height = height,
-    col = col,
-    row = 1,
-    border = 'rounded',
-    style = 'minimal',
-    title = ' Module Dependencies ',
-    title_pos = 'center',
-  })
+  local prev_win = vim.api.nvim_get_current_win()
+  vim.cmd('topleft vsplit')
+  local win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(win, buf)
+  vim.api.nvim_win_set_width(win, width)
+  vim.api.nvim_set_option_value('winfixwidth', true, { win = win })
+  vim.api.nvim_set_option_value('number', false, { win = win })
+  vim.api.nvim_set_option_value('relativenumber', false, { win = win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { win = win })
+  vim.api.nvim_set_option_value('cursorline', false, { win = win })
 
   return win, buf
 end
@@ -412,12 +462,6 @@ function treeview.show_dependency_tree()
     treeview.setup_keymaps(buf)
     treeview.refresh_tree()
     treeview.setup_highlighting()
-
-    vim.api.nvim_create_autocmd({ 'BufLeave', 'WinLeave' }, {
-      buffer = buf,
-      once = true,
-      callback = treeview.close_dependency_tree,
-    })
   end
 
   open_when_ready()
@@ -588,6 +632,7 @@ function treeview.refresh_tree()
   local tree_data = treeview.build_dependency_tree({
     view_mode = treeview.window_state.view_mode,
     filter = treeview.window_state.filter,
+    filter_type = treeview.window_state.filter_type,
   })
   treeview.window_state.tree_data = tree_data
 
@@ -596,9 +641,10 @@ function treeview.refresh_tree()
   if buf and vim.api.nvim_buf_is_valid(buf) then
     local lines = treeview.render_tree(tree_data)
     local header = string.format(
-      '[%s view]%s',
+      '[%s view]%s%s',
       (treeview.window_state.view_mode == 'deps' and 'dependencies' or 'reverse'),
-      treeview.window_state.filter and (' filter: ' .. treeview.window_state.filter) or ''
+      treeview.window_state.filter and (' filter: ' .. treeview.window_state.filter) or '',
+      treeview.window_state.filter_type ~= 'all' and (' type: ' .. treeview.window_state.filter_type) or ''
     )
     table.insert(lines, 1, header)
     vim.api.nvim_buf_set_option(buf, 'modifiable', true)
@@ -623,9 +669,18 @@ function treeview.goto_module_definition()
     local module_info = module_cache.get_module_info(node.name)
 
     if module_info and module_info.file then
-      treeview.close_dependency_tree()
+      -- 打开文件到主窗口，保持侧栏
+      local main_win = nil
+      for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+        if win ~= treeview.window_state.win_id then
+          main_win = win
+          break
+        end
+      end
+      if main_win then
+        vim.api.nvim_set_current_win(main_win)
+      end
 
-      -- 打开文件
       vim.cmd('edit ' .. module_info.file)
 
       -- 跳转到模块定义行
