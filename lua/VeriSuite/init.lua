@@ -4,6 +4,7 @@ local test = require('VeriSuite.test')
 local blink = require('VeriSuite.integrations.blink')
 local fzf = require('VeriSuite.integrations.fzf')
 local keymapping = require('VeriSuite.config.keymapping')
+local parser = require('VeriSuite.core.parser')
 local M = {}
 
 local defaults = {
@@ -13,7 +14,16 @@ local defaults = {
   enable_blink_source = false,
   blink = {},
   enable_fzf = false,
+  enable_fidget = false,
   keymaps = {},
+  project = {
+    extensions = { '.v', '.sv', '.vh', '.svh' },
+    library_directories = {},
+    library_files = {},
+    include_dirs = {},
+    defines = {},
+    parse_preprocessor = false,
+  },
 }
 
 ---Setup entry point
@@ -22,6 +32,8 @@ function M.setup(opts)
   local config = vim.tbl_deep_extend('force', defaults, opts or {})
 
   verible.setup(config.verible)
+  parser.set_options(config.project)
+  vim.g.VeriSuiteEnableFidget = config.enable_fidget
   core.check_availibility()
   core.register_core_commands()
 

@@ -2,6 +2,21 @@ local verible = require('VeriSuite.core.verible')
 local ok_job, Job = pcall(require, 'plenary.job')
 local parser = {}
 
+parser.options = {
+  extensions = { '.v', '.sv', '.vh', '.svh' },
+  library_directories = {},
+  library_files = {},
+  include_dirs = {},
+  defines = {},
+  parse_preprocessor = false,
+}
+
+parser.preprocess_cache = {}
+
+function parser.set_options(opts)
+  parser.options = vim.tbl_deep_extend('force', parser.options, opts or {})
+end
+
 local function json_decode(str)
   if vim.json and vim.json.decode then
     return vim.json.decode(str)
@@ -34,6 +49,33 @@ function parser.find_project_root()
 end
 
 function parser.parse_file(file_path)
+  if parser.options.parse_preprocessor then
+    local ok_lines, lines = pcall(vim.fn.readfile, file_path)
+    if ok_lines and lines then
+      local includes = {}
+      local defines = {}
+      for _, line in ipairs(lines) do
+        local inc = line:match('^%s*`include%s+"([^"]+)"')
+        if inc then
+          table.insert(includes, inc)
+        end
+        local key, val = line:match('^%s*`define%s+([%w_]+)%s*(.*)$')
+        if key then
+          defines[key] = val ~= '' and val or '1'
+        end
+      end
+      if parser.options.defines then
+        for k, v in pairs(parser.options.defines) do
+          defines[k] = tostring(v)
+        end
+      end
+      parser.preprocess_cache[file_path] = {
+        includes = includes,
+        defines = defines,
+      }
+    end
+  end
+
   local run_result = verible.run_syntax(file_path)
 
   if not run_result.ok then
@@ -286,26 +328,53 @@ end
 -- 递归查找Verilog/SystemVerilog文件
 function parser.find_verilog_files(root_dir)
   local files = {}
+  local file_set = {}
+  local extensions = parser.options.extensions or { '.v', '.sv', '.vh', '.svh' }
 
-  -- 支持的文件扩展名
-  local extensions = { '*.v', '*.sv', '*.vh', '*.svh' }
-
-  -- 使用vim.fn.glob递归查找文件
-  for _, ext in ipairs(extensions) do
-    local pattern = root_dir .. '/**/' .. ext
-    local found_files = vim.fn.glob(pattern, false, true)
-
-    for _, file in ipairs(found_files) do
-      -- 排除临时文件和备份文件
+  local function add_file(file)
+    if file ~= '' and vim.fn.filereadable(file) == 1 and not file_set[file] then
       if not string.match(file, '[#%$~]$') and not string.match(file, '%.swp$') then
+        file_set[file] = true
         table.insert(files, file)
       end
     end
   end
 
-  -- 排序文件列表
-  table.sort(files)
+  local function scan_dir(dir)
+    for _, ext in ipairs(extensions) do
+      local normalized = ext
+      if normalized:sub(1, 1) == '.' then
+        normalized = '*' .. normalized
+      end
+      local pattern = dir .. '/**/' .. normalized
+      local found_files = vim.fn.glob(pattern, false, true)
+      for _, file in ipairs(found_files) do
+        add_file(file)
+      end
+    end
+  end
 
+  scan_dir(root_dir)
+
+  for _, dir in ipairs(parser.options.library_directories or {}) do
+    local abs = dir
+    if vim.fn.isdirectory(abs) == 0 then
+      abs = root_dir .. '/' .. dir
+    end
+    if vim.fn.isdirectory(abs) == 1 then
+      scan_dir(abs)
+    end
+  end
+
+  for _, file in ipairs(parser.options.library_files or {}) do
+    local abs = file
+    if vim.fn.filereadable(abs) == 0 then
+      abs = root_dir .. '/' .. file
+    end
+    add_file(abs)
+  end
+
+  table.sort(files)
   return files
 end
 

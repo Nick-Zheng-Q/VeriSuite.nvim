@@ -46,6 +46,16 @@ function M.register_debug_commands()
     autoinst_test.test_generate_only()
   end, {})
 
+  vim.api.nvim_create_user_command('VeriSuiteExpandAuto', function()
+    local auto = require('VeriSuite.core.auto')
+    auto.expand_current_buffer()
+  end, {})
+
+  vim.api.nvim_create_user_command('VeriSuiteUndoAuto', function()
+    local auto = require('VeriSuite.core.auto')
+    auto.undo_last()
+  end, {})
+
   vim.api.nvim_create_user_command('VeriSuiteTestModuleInstances', function()
     dependency_test.test_module_instances()
   end, {})
@@ -159,6 +169,36 @@ function M.register_debug_commands()
       vim.notify('Project root: ' .. stats.project_root, vim.log.levels.DEBUG)
     end
   end, {})
+
+  vim.api.nvim_create_user_command('VeriSuiteAutoArg', function()
+    local auto = require('VeriSuite.core.auto')
+    auto.expand_markers({ 'AUTOARG' })
+  end, { desc = 'Expand AUTOARG markers' })
+
+  vim.api.nvim_create_user_command('VeriSuiteAutoInput', function()
+    local auto = require('VeriSuite.core.auto')
+    auto.expand_markers({ 'AUTOINPUT' })
+  end, { desc = 'Expand AUTOINPUT markers' })
+
+  vim.api.nvim_create_user_command('VeriSuiteAutoOutput', function()
+    local auto = require('VeriSuite.core.auto')
+    auto.expand_markers({ 'AUTOOUTPUT' })
+  end, { desc = 'Expand AUTOOUTPUT markers' })
+
+  vim.api.nvim_create_user_command('VeriSuiteAutoWire', function()
+    local auto = require('VeriSuite.core.auto')
+    auto.expand_markers({ 'AUTOWIRE' })
+  end, { desc = 'Expand AUTOWIRE markers' })
+
+  vim.api.nvim_create_user_command('VeriSuiteAutoReg', function()
+    local auto = require('VeriSuite.core.auto')
+    auto.expand_markers({ 'AUTOREG' })
+  end, { desc = 'Expand AUTOREG markers' })
+
+  vim.api.nvim_create_user_command('VeriSuiteAutoInout', function()
+    local auto = require('VeriSuite.core.auto')
+    auto.expand_markers({ 'AUTOINOUT' })
+  end, { desc = 'Expand AUTOINOUT markers' })
 end
 
 return M

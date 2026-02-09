@@ -1,0 +1,142 @@
+*VeriSuite.nvim.txt*  VeriSuite.nvim for Neovim
+
+==============================================================================
+VeriSuite.nvim                                               *VeriSuite.nvim*
+
+VeriSuite.nvim is a Verilog/SystemVerilog helper plugin for Neovim with
+Verible-based parsing, AUTO marker expansion, module cache, and picker/
+completion integrations.
+
+==============================================================================
+Table of Contents                         *VeriSuite.nvim-table-of-contents*
+
+1. Requirements ............................ |VeriSuite.nvim-requirements|
+2. Setup ................................... |VeriSuite.nvim-setup|
+3. Commands ................................ |VeriSuite.nvim-commands|
+4. AUTO Markers ............................ |VeriSuite.nvim-auto-markers|
+5. Integrations ............................ |VeriSuite.nvim-integrations|
+6. Limitations ............................. |VeriSuite.nvim-limitations|
+
+==============================================================================
+1. Requirements                              *VeriSuite.nvim-requirements*
+
+- Neovim >= 0.7
+- Verible tools in PATH (or configured overrides)
+- plenary.nvim
+
+Optional:
+- fzf-lua
+- blink.cmp
+- fidget.nvim (progress notifications)
+
+==============================================================================
+2. Setup                                            *VeriSuite.nvim-setup*
+
+Example (lazy.nvim): >lua
+  {
+    'Nick-Zheng-Q/VeriSuite.nvim',
+    name = 'VeriSuite.nvim',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    config = function()
+      require('VeriSuite').setup({
+        enable_debug_commands = true,
+        enable_autocmds = true,
+        enable_fzf = true,
+        enable_blink_source = true,
+        enable_fidget = false,
+        project = {
+          extensions = { '.v', '.sv', '.vh', '.svh' },
+          library_directories = {},
+          library_files = {},
+          include_dirs = {},
+          defines = {},
+          parse_preprocessor = false,
+        },
+      })
+    end,
+  }
+<
+
+==============================================================================
+3. Commands                                      *VeriSuite.nvim-commands*
+
+Core:
+- :VeriSuiteAutoInst
+- :VeriSuiteExpandAuto
+- :VeriSuiteUndoAuto
+
+Single-marker expansion:
+- :VeriSuiteAutoArg
+- :VeriSuiteAutoInput
+- :VeriSuiteAutoOutput
+- :VeriSuiteAutoWire
+- :VeriSuiteAutoReg
+- :VeriSuiteAutoInout
+
+Cache/parse/debug:
+- :VeriSuiteDebugParseFile
+- :VeriSuiteDebugParseProject
+- :VeriSuiteDebugParseFileRaw
+- :VeriSuiteDebugShowConfig
+- :VeriSuiteDebugTreeStructure
+- :VeriSuiteDebugCacheStatus
+- :VeriSuiteTestAutoInst
+- :VeriSuiteTestModuleCache
+- :VeriSuiteTestGenerateOnly
+
+Tree view:
+- :VeriSuiteTreeViewToggle
+- :VeriSuiteTreeViewHardware
+- :VeriSuiteTreeViewTest
+- :VeriSuiteTreeViewRefresh
+- :VeriSuiteTreeViewClose
+
+fzf-lua:
+- :VeriSuiteFzfAutoInst
+- :VeriSuiteFzfGotoModule
+
+==============================================================================
+4. AUTO Markers                               *VeriSuite.nvim-auto-markers*
+
+Currently supported baseline markers:
+
+- AUTOINST
+- AUTOINSTPARAM
+- AUTOARG
+- AUTOINPUT
+- AUTOOUTPUT
+- AUTOINOUT
+- AUTOWIRE
+- AUTOREG
+- AUTO_TEMPLATE (module/instance scope, [] and @ substitution)
+- AUTOSENSE
+- AUTORESET
+- AUTOTIEOFF
+- AUTOUNUSED
+- AUTOINOUTMODPORT
+- AUTOASCIIENUM
+
+==============================================================================
+5. Integrations                               *VeriSuite.nvim-integrations*
+
+blink.cmp:
+- Optional completion source for module and port insertion.
+
+fzf-lua:
+- Module picker for inserting instantiations or jumping to definitions.
+
+fidget.nvim:
+- Optional progress reporting during parse/cache/auto expansion.
+- Safe no-op when fidget is not installed.
+
+==============================================================================
+6. Limitations                                 *VeriSuite.nvim-limitations*
+
+- Baseline-first behavior: core AUTO workflow is implemented and covered by
+  fixtures, but not all Emacs Verilog-mode corner cases are matched yet.
+- AUTO_TEMPLATE currently supports baseline substitutions and scoped overrides;
+  advanced expression/eval semantics are not fully implemented.
+- AUTOSENSE/AUTORESET use practical heuristics for common patterns.
+
+==============================================================================
+vim:tw=78:ts=8:noet:ft=help:norl:

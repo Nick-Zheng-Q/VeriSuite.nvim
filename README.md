@@ -12,6 +12,24 @@ VeriSuite.nvim is a Neovim plugin that speeds up Verilog/SystemVerilog developme
 - Tree view side panel for dependencies / reverse dependencies (filters for hardware/test roots)
 - fzf-lua picker for inserting instantiations or jumping to module definitions
 - Optional blink.cmp source for module/port completion (modules insert full instantiation; ports insert `.port(sig)`)
+- AUTO marker expansion with fixture-covered baseline behavior
+
+## AUTO Support Matrix (Baseline)
+
+Supported now:
+
+- `AUTOINST`, `AUTOINSTPARAM`
+- `AUTOARG`, `AUTOINPUT`, `AUTOOUTPUT`, `AUTOINOUT`, `AUTOWIRE`, `AUTOREG`
+- `AUTO_TEMPLATE` (module-level and instance-level template scope, basic `[]` and `@` substitution)
+- `AUTOSENSE`, `AUTORESET`, `AUTOTIEOFF`, `AUTOUNUSED`
+- `AUTOINOUTMODPORT`, `AUTOASCIIENUM`
+
+Commands:
+
+- `:VeriSuiteExpandAuto` - expand all markers in current buffer
+- `:VeriSuiteUndoAuto` - undo last expansion
+- `:VeriSuiteAutoArg`, `:VeriSuiteAutoInput`, `:VeriSuiteAutoOutput`
+- `:VeriSuiteAutoWire`, `:VeriSuiteAutoReg`, `:VeriSuiteAutoInout`
 
 ## Requirements
 
@@ -19,6 +37,7 @@ VeriSuite.nvim is a Neovim plugin that speeds up Verilog/SystemVerilog developme
 - Verible tools in PATH (or provided via config)
 - `plenary.nvim`
 - Optional: `fzf-lua` for pickers; `blink.cmp` for completion
+- Optional: `fidget.nvim` for progress notifications
 
 ## Installation (lazy.nvim)
 
@@ -44,6 +63,15 @@ return
         -- priority = 40,
       },
       enable_fzf = true,
+      enable_fidget = false,
+      project = {
+        -- extensions = { '.v', '.sv', '.vh', '.svh' },
+        -- library_directories = { 'rtl', 'ip' },
+        -- library_files = { 'top.sv' },
+        -- include_dirs = { 'include' },
+        -- defines = { SIM = 1 },
+        -- parse_preprocessor = false,
+      },
       keymaps = {
         -- set to '' to disable any mapping
         -- treeview_toggle = '<leader>vt',
@@ -64,6 +92,14 @@ return
 | Command | Description |
 | --- | --- |
 | `:VeriSuiteAutoInst` | Auto-instantiate by module name (interactive input) |
+| `:VeriSuiteExpandAuto` | Expand all AUTO markers in current buffer |
+| `:VeriSuiteUndoAuto` | Undo last AUTO expansion |
+| `:VeriSuiteAutoArg` | Expand `AUTOARG` markers only |
+| `:VeriSuiteAutoInput` | Expand `AUTOINPUT` markers only |
+| `:VeriSuiteAutoOutput` | Expand `AUTOOUTPUT` markers only |
+| `:VeriSuiteAutoWire` | Expand `AUTOWIRE` markers only |
+| `:VeriSuiteAutoReg` | Expand `AUTOREG` markers only |
+| `:VeriSuiteAutoInout` | Expand `AUTOINOUT` markers only |
 | `:VeriSuiteDebugParseFile` | Parse current file |
 | `:VeriSuiteDebugParseProject` | Parse entire project (async) |
 | `:VeriSuiteDebugParseFileRaw` | Show raw Verible JSON |
@@ -102,6 +138,19 @@ return
 
 - Use debug commands above; set `enable_debug_commands = false` to hide them for daily use.
 - Autocmd: on `BufWritePost` for `*.v,*.sv,*.vh,*.svh` the current file is re-parsed into cache (if enabled).
+
+## CI/CD
+
+- CI runs on every push and pull request via GitHub Actions: `.github/workflows/ci.yml`.
+- CI installs Neovim + latest Verible, then runs fixture regression:
+  `nvim --headless -u tests/minimal_init.lua -c "lua if not require('tests.runner').run_all() then vim.cmd('cquit 1') end" -c "qa!"`.
+- Release workflow is tag-driven (`v*`) via `.github/workflows/release.yml` and publishes GitHub Releases automatically.
+
+## Current Limitations
+
+- Baseline-first behavior: outputs are stable for included fixtures, but not yet 1:1 with all Emacs Verilog-mode edge cases.
+- `AUTO_TEMPLATE` currently supports baseline substitutions (`[]`, `@`) and scoped overrides; advanced expression/eval semantics are not fully implemented.
+- `AUTOSENSE`/`AUTORESET` use practical heuristics over current buffer context; deeply nested macro-heavy patterns may still need manual touch-up.
 
 ## License
 

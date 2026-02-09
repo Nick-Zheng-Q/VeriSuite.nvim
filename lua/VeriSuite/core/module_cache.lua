@@ -1,5 +1,6 @@
 -- lua/VeriSuite/module_cache.lua
 local module_cache = {}
+local fidget = require('VeriSuite.integrations.fidget')
 
 -- 全局缓存表
 module_cache.cache = {
@@ -119,9 +120,18 @@ function module_cache.load_project()
   module_cache.init()
   module_cache.cache.project_root = root_dir
 
+  local progress_handle = nil
+  if vim.g.VeriSuiteEnableFidget then
+    progress_handle = fidget.create('VeriSuite', 'Parsing project')
+  end
+
   parser.parse_project_async(root_dir, {
     concurrency = 4,
     on_progress = function(done, total)
+      if progress_handle and total > 0 then
+        local pct = math.floor((done / total) * 100)
+        fidget.report(progress_handle, string.format('Parsing %d/%d', done, total), pct)
+      end
       if done % 20 == 0 or done == total then
         vim.notify(string.format('VeriSuite cache parsing %d/%d files', done, total), vim.log.levels.DEBUG)
       end
@@ -160,6 +170,9 @@ function module_cache.load_project()
         failed or 0
       )
       vim.notify(msg, vim.log.levels.INFO)
+      if progress_handle then
+        fidget.finish(progress_handle, msg)
+      end
 
       if errors and #errors > 0 then
         local first = errors[1]
@@ -179,8 +192,19 @@ function module_cache.reload_cache()
   local root_dir = module_cache.get_project_root()
   module_cache.cache.loading = true
 
+  local progress_handle = nil
+  if vim.g.VeriSuiteEnableFidget then
+    progress_handle = fidget.create('VeriSuite', 'Reloading cache')
+  end
+
   parser.parse_project_async(root_dir, {
     concurrency = 4,
+    on_progress = function(done, total)
+      if progress_handle and total > 0 then
+        local pct = math.floor((done / total) * 100)
+        fidget.report(progress_handle, string.format('Reloading %d/%d', done, total), pct)
+      end
+    end,
     on_finish = function(modules, failed, errors)
       -- 简单策略：重建缓存
       module_cache.init()
@@ -214,6 +238,9 @@ function module_cache.reload_cache()
         failed or 0
       )
       vim.notify(msg, vim.log.levels.INFO)
+      if progress_handle then
+        fidget.finish(progress_handle, msg)
+      end
       if errors and #errors > 0 then
         vim.notify(
           string.format('First parse failure: %s (%s)', errors[1].file or 'unknown', errors[1].err or ''),

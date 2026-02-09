@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Neovim and system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y neovim curl ca-certificates tar
+
+      - name: Install latest Verible
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > /tmp/verible_url.txt
+          import json, urllib.request
+          api = "https://api.github.com/repos/chipsalliance/verible/releases/latest"
+          with urllib.request.urlopen(api) as r:
+              data = json.load(r)
+          assets = data.get("assets", [])
+          for a in assets:
+              name = a.get("name", "")
+              if name.endswith("linux-static-x86_64.tar.gz"):
+                  print(a["browser_download_url"])
+                  break
+          else:
+              raise SystemExit("No linux-static-x86_64 verible asset found")
+          PY
+          VERIBLE_URL="$(cat /tmp/verible_url.txt)"
+          curl -fsSL "$VERIBLE_URL" -o /tmp/verible.tar.gz
+          mkdir -p /tmp/verible
+          tar -xzf /tmp/verible.tar.gz -C /tmp/verible
+          sudo cp /tmp/verible/verible-*/bin/* /usr/local/bin/
+          verible-verilog-syntax --version
+
+      - name: Run fixture regression
+        run: |
+          nvim --headless -u tests/minimal_init.lua \
+            -c "lua if not require('tests.runner').run_all() then vim.cmd('cquit 1') end" \
+            -c "qa!"
