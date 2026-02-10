@@ -79,13 +79,60 @@ return
         -- treeview_test = '<leader>vv',
         -- treeview_close = '<leader>vq',
         -- parse_project = '<leader>vp',
+        -- auto_expand = '<leader>ve',
+        -- auto_undo = '<leader>vu',
+        -- auto_arg = '',
+        -- auto_input = '',
+        -- auto_output = '',
+        -- auto_wire = '',
+        -- auto_reg = '',
+        -- auto_inout = '',
         -- fzf_autoinst = '<leader>va',
         -- fzf_goto = '<leader>vg',
+        -- custom = {
+        --   { lhs = '<leader>vx', rhs = '<cmd>VeriSuiteExpandAuto<cr>', desc = 'Expand AUTO' },
+        --   { lhs = '<leader>vX', rhs = function() print('custom') end, mode = 'n' },
+        -- },
       },
     })
   end,
 }
 ```
+
+## 推荐用户配置
+
+```lua
+require('VeriSuite').setup({
+  enable_debug_commands = false,
+  enable_autocmds = true,
+  enable_fzf = true,
+  enable_blink_source = true,
+  enable_fidget = false,
+  keymaps = {
+    parse_project = '<leader>vp',
+    auto_expand = '<leader>ve',
+    auto_undo = '<leader>vu',
+    auto_arg = '<leader>va',
+    auto_input = '',
+    auto_output = '',
+    auto_wire = '<leader>vw',
+    auto_reg = '',
+    auto_inout = '',
+    custom = {
+      { lhs = '<leader>vA', rhs = '<cmd>VeriSuiteExpandAuto<cr>', desc = 'Expand all AUTO markers' },
+      { lhs = '<leader>vU', rhs = '<cmd>VeriSuiteUndoAuto<cr>', desc = 'Undo AUTO expansion' },
+    },
+  },
+})
+```
+
+## 什么是 Fixture？
+
+- Fixture 就是固定的测试输入 + 期望输出。
+- 在本项目里通常是一对文件：
+  - `tests/fixtures/<name>.v`（输入）
+  - `tests/fixtures/<name>.expected.v`（期望扩展结果）
+- `tests/runner.lua` 会执行扩展并比较实际输出与期望输出，判断是否回归。
 
 ## 命令
 
@@ -100,6 +147,7 @@ return
 | `:VeriSuiteAutoWire` | 仅扩展 `AUTOWIRE` |
 | `:VeriSuiteAutoReg` | 仅扩展 `AUTOREG` |
 | `:VeriSuiteAutoInout` | 仅扩展 `AUTOINOUT` |
+| `:VeriSuiteParseProject` | 解析项目并刷新模块缓存 |
 | `:VeriSuiteDebugParseFile` | 解析当前文件 |
 | `:VeriSuiteDebugParseProject` | 解析整个项目（异步） |
 | `:VeriSuiteDebugParseFileRaw` | 查看 Verible 原始 JSON |

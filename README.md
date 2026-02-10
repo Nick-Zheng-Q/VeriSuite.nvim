@@ -79,13 +79,60 @@ return
         -- treeview_test = '<leader>vv',
         -- treeview_close = '<leader>vq',
         -- parse_project = '<leader>vp',
+        -- auto_expand = '<leader>ve',
+        -- auto_undo = '<leader>vu',
+        -- auto_arg = '',
+        -- auto_input = '',
+        -- auto_output = '',
+        -- auto_wire = '',
+        -- auto_reg = '',
+        -- auto_inout = '',
         -- fzf_autoinst = '<leader>va',
         -- fzf_goto = '<leader>vg',
+        -- custom = {
+        --   { lhs = '<leader>vx', rhs = '<cmd>VeriSuiteExpandAuto<cr>', desc = 'Expand AUTO' },
+        --   { lhs = '<leader>vX', rhs = function() print('custom') end, mode = 'n' },
+        -- },
       },
     })
   end,
 }
 ```
+
+## Recommended User Setup
+
+```lua
+require('VeriSuite').setup({
+  enable_debug_commands = false,
+  enable_autocmds = true,
+  enable_fzf = true,
+  enable_blink_source = true,
+  enable_fidget = false,
+  keymaps = {
+    parse_project = '<leader>vp',
+    auto_expand = '<leader>ve',
+    auto_undo = '<leader>vu',
+    auto_arg = '<leader>va',
+    auto_input = '',
+    auto_output = '',
+    auto_wire = '<leader>vw',
+    auto_reg = '',
+    auto_inout = '',
+    custom = {
+      { lhs = '<leader>vA', rhs = '<cmd>VeriSuiteExpandAuto<cr>', desc = 'Expand all AUTO markers' },
+      { lhs = '<leader>vU', rhs = '<cmd>VeriSuiteUndoAuto<cr>', desc = 'Undo AUTO expansion' },
+    },
+  },
+})
+```
+
+## What Is A Fixture?
+
+- A fixture is a fixed test input + expected output pair.
+- In this repo, each feature test usually uses:
+  - `tests/fixtures/<name>.v` (input)
+  - `tests/fixtures/<name>.expected.v` (expected expansion)
+- `tests/runner.lua` runs expansion and compares actual output to expected output.
 
 ## Commands
 
@@ -100,6 +147,7 @@ return
 | `:VeriSuiteAutoWire` | Expand `AUTOWIRE` markers only |
 | `:VeriSuiteAutoReg` | Expand `AUTOREG` markers only |
 | `:VeriSuiteAutoInout` | Expand `AUTOINOUT` markers only |
+| `:VeriSuiteParseProject` | Parse project and refresh module cache |
 | `:VeriSuiteDebugParseFile` | Parse current file |
 | `:VeriSuiteDebugParseProject` | Parse entire project (async) |
 | `:VeriSuiteDebugParseFileRaw` | Show raw Verible JSON |
